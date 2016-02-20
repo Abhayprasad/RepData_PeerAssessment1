@@ -1,25 +1,140 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: 'Reproducible Research: Assignment: Course Project 1'
+author: "Abhay Prasad"
+date: "February 20, 2016"
+output: html_document
 ---
+## Loading necessary R packges and readying the R Studio environment
+The code chunk below is to clear all pre-existing variables and to set or load packages that will be required. These packages have already been installed [using "intall.packages()"].
+```{r}
+rm(list=ls(all=TRUE)) # To remove all variables from the environment at the onset. Helps in faster processing. 
+ls()
+options(rpubs.upload.method = "internal")
+echo = TRUE  # To make the code chunks visible in the Knitted output
+options(scipen = 1)  # To turn off scientific notations for numbers
+library(lattice)
+library(R.utils) # Primarily needed to process the Bunzip2 raw data file
+library(ggplot2)
+library(stringr)
+library(plyr)
+require(gridExtra)
+setwd("~/RepResPA1Feb16") # Setting working directory for this assignment 
+```
 
+## Loading and processing the data
+The data for this assignment can be downloaded from the course web site URL: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip
 
-## Loading and preprocessing the data
+The raw data file was downloaded using the following code. This code is shown as text rather than as an executable code chunk to avoid the time-consuming steps of downloading and unzipping the file running repeatedly:
 
+fileUrl <- "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 
+download.file(fileUrl, destfile="~/RepResPA1ActivityData.zip")
+
+unzip("RepResPA1ActivityData.zip")
+
+### Data Loading
+```{r}
+rawdata <- read.csv("~/RepResPA1Feb16/activity.csv", colClasses = c("integer", "Date", "factor"))
+dim(rawdata) #This should be 17568 rows and 3 columns
+rawdata$month <- as.numeric(format(rawdata$date, "%m"))
+```
 
 ## What is mean total number of steps taken per day?
 
+For this part of the assignment, you can ignore the missing values in the dataset.
+```{r}
+dataexNA <- na.omit(rawdata) #Omits rows with missing values in the dataset
+rownames(dataexNA) <- 1:nrow(dataexNA)
+head(dataexNA)
+dim(dataexNA)
+```
 
+### Histogram of the total number of steps taken each day
+```{r}
+numSteps <- tapply(rawdata$steps, rawdata$date, sum, na.rm=TRUE)
+qplot(numSteps, xlab='Total Steps Per Day', ylab='Frequency')
+```
+
+### Mean and median number of steps taken each day
+```{r}
+totalSteps <- aggregate(dataexNA$steps, list(Date = dataexNA$date), FUN = "sum")$x
+mean(totalSteps)
+median(totalSteps)
+```
 
 ## What is the average daily activity pattern?
 
-
+### Time series plot of the average number of steps taken
+```{r}
+avgSteps <- aggregate(dataexNA$steps, list(interval = as.numeric(as.character(dataexNA$interval))), FUN = "mean")
+names(avgSteps)[2] <- "meanOfSteps"
+ggplot(avgSteps, aes(interval, meanOfSteps)) + geom_line(color = "blue", size = 0.7) + labs(title = "Time Series Plot of 5-minute Interval", x = "5-minute intervals", y = "Average Number of Steps Taken")
+```
 
 ## Imputing missing values
 
+The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+avgSteps[avgSteps$meanOfSteps == max(avgSteps$meanOfSteps), ]
+```
 
+
+### Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r}
+sum(is.na(rawdata)) # To calculate and report the total number of missing values in the original dataset (i.e. the total number of rows with NAs)
+dim(rawdata) - dim(dataexNA)  # Another way to verify the  calculated total number of missing values in the original dataset
+```
+
+### Devise a strategy for filling in all of the missing values in the dataset and Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+newData <- rawdata 
+for (i in 1:nrow(newData)) {
+    if (is.na(newData$steps[i])) {
+        newData$steps[i] <- avgSteps[which(newData$interval[i] == avgSteps$interval), ]$meanOfSteps
+    }
+}
+head(newData)
+dim(newData)
+sum(is.na(newData))
+dim(rawdata) - dim(newData)
+```
+
+### Histogram of the total number of steps taken each day after missing values are imputed
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.
+```{r}
+newnumSteps <- tapply(newData$steps, newData$date, sum, na.rm=TRUE)
+qplot(newnumSteps, xlab='Total Steps Per Day', ylab='Frequency')
+```
+### Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r}
+newTotalSteps <- aggregate(newData$steps, list(Date = newData$date), FUN = "sum")$x
+newMean <- mean(newTotalSteps)
+newMean
+newMedian <- median(newTotalSteps)
+newMedian
+oldMean <- mean(totalSteps)
+oldMedian <- median(totalSteps)
+newMean - oldMean
+newMedian - oldMedian
+```
+After imputing the missing data and then calculating and comparing the means it is seen that the mean of the total steps taken per day in the imputed dataset is the same as that of the  mean of the total steps taken per day in the original dataset; however, the median of total steps taken per day of the imputed dataset is (slightly) greater than that of the original median.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+### Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends. 
+```{r}
+newData$weekdays <- factor(format(newData$date, "%A"))
+levels(newData$weekdays)
+levels(newData$weekdays) <- list(Weekday = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"), Weekend = c("Saturday", "Sunday"))
+levels(newData$weekdays)
+table(newData$weekdays)
+```
+### Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+```{r}
+avgSteps <- aggregate(newData$steps, list(interval = as.numeric(as.character(newData$interval)), weekdays = newData$weekdays), FUN = "mean")
+names(avgSteps)[3] <- "meanOfSteps"
+xyplot(avgSteps$meanOfSteps ~ avgSteps$interval | avgSteps$weekdays, layout = c(1, 2), type = "l", xlab = "Interval", ylab = "Number of steps")
+```
+
+On the basis of the graph it seems that the patterns for weekdays and weekends are different. On weekdays, there's a higher degree of activity just after 8am, but much lesser on weekends. On weekends there seems to be more regular activity throughout the day; whereas, on weekdays the level of activity is less evenly spread out and most activity occurs in the mornings, just after noon, and in the evenings.
+
