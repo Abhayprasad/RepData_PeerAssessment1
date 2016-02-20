@@ -2,7 +2,7 @@
 title: 'Reproducible Research: Assignment: Course Project 1'
 author: "Abhay Prasad"
 date: "February 20, 2016"
-output: html_document
+output: pdf_document
 ---
 ## Loading necessary R packges and readying the R Studio environment
 The code chunk below is to clear all pre-existing variables and to set or load packages that will be required. These packages have already been installed [using "intall.packages()"].
@@ -138,3 +138,6 @@ xyplot(avgSteps$meanOfSteps ~ avgSteps$interval | avgSteps$weekdays, layout = c(
 
 On the basis of the graph it seems that the patterns for weekdays and weekends are different. On weekdays, there's a higher degree of activity just after 8am, but much lesser on weekends. On weekends there seems to be more regular activity throughout the day; whereas, on weekdays the level of activity is less evenly spread out and most activity occurs in the mornings, just after noon, and in the evenings.
 
+```{r}
+sessionInfo()
+```
